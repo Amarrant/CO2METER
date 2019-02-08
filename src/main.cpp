@@ -92,7 +92,6 @@ bool shouldSaveConfig = false;
 
 // Sensors data
 int t {-100};
-int p {-1};
 int h {-1};
 int co2 {-1};
 float tf {0};
@@ -177,13 +176,11 @@ void sendMeasurements() {
         // Send to server
         Blynk.virtualWrite(V1, t);
         Blynk.virtualWrite(V2, h);
-        Blynk.virtualWrite(V4, p);
         Blynk.virtualWrite(V5, co2);
 
         // Write to debug console
         printString("H: " + String(hf) + "%");
         printString("T: " + String(tf) + "C");
-        printString("P: " + String(pf) + "mmHg");
         printString("CO2: " + String(co2) + "ppm");
 }
 
@@ -232,8 +229,6 @@ void draw() {
         case 1:
                 if (h > -1) { measurement = "H: " + String(h) + "%"; }
                 break;
-        default:
-                if (p > -1) { measurement =  "P: " + String(p) + " mmHg"; }
         }
 
         char measurementa [12];
@@ -432,8 +427,9 @@ void setup() {
         // Init display
         u8g2.begin();
         drawBoot();
+        
         //DHT22 init
-          dht.begin();
+        dht.begin();
 
 
         
