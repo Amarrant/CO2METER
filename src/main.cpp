@@ -42,7 +42,13 @@ DHT dht(DHTPIN, DHTTYPE);
 
 #include <Wire.h>
 
-// Pressure and Temperature
+//WS2812b
+#include <WS2812FX.h>
+#define LED_PIN    4  // digital pin used to drive the LED strip
+#define LED_COUNT 1  // number of LEDs on the strip
+
+WS2812FX ws2812fx = WS2812FX(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+
 
 // Use U8g2 for i2c OLED Lib
 #include <SPI.h>
@@ -182,6 +188,16 @@ void sendMeasurements() {
         printString("H: " + String(hf) + "%");
         printString("T: " + String(tf) + "C");
         printString("CO2: " + String(co2) + "ppm");
+
+        //Will set WS2812b
+        if (co2 > 1400 )              {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0xFF0000, 1000, false);} // > 1400 ppm
+        if (co2 > 1300 && co2 < 1400) {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0xFF4500, 1000, false);} // > 1300 ppm
+        if (co2 > 1200 && co2 < 1300) {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0xFFA500, 1000, false);} // > 1200 ppm
+        if (co2 > 1100 && co2 < 1200) {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0xFFA500, 1000, false);} // > 1100 ppm
+        if (co2 > 1000 && co2 < 1100) {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0xFFFF00, 1000, false);} // > 1000 ppm
+        if (co2 > 900  && co2 < 1000) {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0x32CD32, 1000, false);} // >  900 ppm
+        if (co2 > 800  && co2 < 900)  {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0x00FFFF, 1000, false);} // >  800 ppm
+        if (co2 < 800)                {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0x87CEFA, 1000, false);} // <  800 ppm
 }
 
 
@@ -416,6 +432,9 @@ void setup() {
         DEBUG_SERIAL.begin(115200);
         SENSOR_SERIAL.begin(9600);
 
+        ws2812fx.init();
+        ws2812fx.setBrightness(250);
+
         // Init I2C interface
         Wire.begin(I2C_SDA, I2C_SCL);
 
@@ -480,7 +499,7 @@ void loop() {
         Blynk.run();
         timer.run();
         draw();
-
+        ws2812fx.service();
         hwReset.update();
         if (hwReset.fell()) {
            factoryReset();
