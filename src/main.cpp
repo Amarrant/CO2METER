@@ -496,7 +496,7 @@ void setup() {
         }
 
         // Setup a function to be called every 10 second
-       timer.setInterval(10000L, sendMeasurements);
+       timer.setInterval(60000L, sendMeasurements);
 
         sendMeasurements();
 }
