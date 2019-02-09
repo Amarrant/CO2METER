@@ -22,9 +22,11 @@
 #include <ArduinoJson.h>          //https://github.com/bblanchon/ArduinoJson
 
 // GPIO Defines
-#define I2C_SDA 5 // D1 Orange
-#define I2C_SCL 4 // D2 Yellow
-#define HW_RESET 12
+#define I2C_SDA 2 // D1 Orange
+#define I2C_SCL 13
+
+ // D2 Yellow
+#define HW_RESET 15
 
 // Debounce interval in ms
 #define DEBOUNCE_INTERVAL 10
@@ -36,7 +38,7 @@ Bounce hwReset {Bounce()};
 
 //DHT22
 #include <DHT.h>
-#define DHTPIN 2     // Digital pin connected to the DHT sensor 
+#define DHTPIN 5     // Digital pin connected to the DHT sensor 
 #define DHTTYPE    DHT22     // DHT 22 (AM2302)
 DHT dht(DHTPIN, DHTTYPE);
 
@@ -47,7 +49,7 @@ DHT dht(DHTPIN, DHTTYPE);
 #define LED_PIN    4  // digital pin used to drive the LED strip
 #define LED_COUNT 1  // number of LEDs on the strip
 
-WS2812FX ws2812fx = WS2812FX(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+WS2812FX ws2812fx = WS2812FX(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ400);
 
 
 // Use U8g2 for i2c OLED Lib
@@ -63,7 +65,7 @@ byte y {0};
 // SW Serial
 #include <SoftwareSerial.h>
 
-SoftwareSerial swSer(13, 15, false, 256); // GPIO15 (TX) and GPIO13 (RX)
+SoftwareSerial swSer(12, 14, false, 256); // GPIO15 (TX) and GPIO13 (RX)
 
 // CO2 SERIAL
 #define DEBUG_SERIAL Serial
@@ -75,13 +77,13 @@ unsigned char response[7];
 
 
 // Blynk token
-char blynk_token[33] {"Blynk token"};
+char blynk_token[33] {"3baf4d0c1746411699ce4faea43ca85e"};
 char blynk_server[64] {"blynk-cloud.com"};
 const uint16_t blynk_port {8442};
 
 // Device Id
-char device_id[17] = "Device ID";
-const char fw_ver[17] = "0.1.0";
+char device_id[17] = "co2meter";
+const char fw_ver[17] = "0.1.4";
 
 // Handy timer
 SimpleTimer timer;
@@ -108,19 +110,22 @@ char loader[4] {'.'};
 
 //callback notifying the need to save config
 void saveConfigCallback() {
-        DEBUG_SERIAL.println("Should save config");
+        ws2812fx.setSegment(0,  0,  0, FX_MODE_BLINK_RAINBOW, 0x87CEFA, 1000, false); //Blinking
+        ws2812fx.start();
+
+                 DEBUG_SERIAL.println("Should save config");
         shouldSaveConfig = true;
 }
 
 void factoryReset() {
-        DEBUG_SERIAL.println("Resetting to factory settings");
+                 DEBUG_SERIAL.println("Resetting to factory settings");
         wifiManager.resetSettings();
         SPIFFS.format();
         ESP.reset();
 }
 
 void printString(String str) {
-        DEBUG_SERIAL.println(str);
+                 DEBUG_SERIAL.println(str);
 }
 
 void readCO2() {
@@ -149,16 +154,16 @@ void readCO2() {
                 crc++;
 
                 if ( !(response[6] == crc) ) {
-                        DEBUG_SERIAL.println("CO2: CRC error: " + String(crc) + " / "+ String(response[6]));
+                                 DEBUG_SERIAL.println("CO2: CRC error: " + String(crc) + " / "+ String(response[6]));
                 } else {
                         unsigned int responseHigh = (unsigned int) response[0];
                         unsigned int responseLow = (unsigned int) response[1];
                         unsigned int ppm = (256*responseHigh) + responseLow;
                         co2 = ppm;
-                        DEBUG_SERIAL.println("CO2:" + String(co2));
+                                 DEBUG_SERIAL.println("CO2:" + String(co2));
                 }
         } else {
-                DEBUG_SERIAL.println("CO2: Header not found");
+                         DEBUG_SERIAL.println("CO2: Header not found");
         }
 
 }
@@ -168,7 +173,7 @@ void sendMeasurements() {
         // Temperature
         printString("Getting Temperature from BME280");
         tf = dht.readTemperature();
-        t = static_cast<int>(tf);
+        t = static_cast<float>(tf);
 
         // Humidity
         printString("Getting Humidity from DHT22");
@@ -180,9 +185,9 @@ void sendMeasurements() {
         readCO2();
 
         // Send to server
-        Blynk.virtualWrite(V1, t);
-        Blynk.virtualWrite(V2, h);
-        Blynk.virtualWrite(V5, co2);
+        if (tf > 10 && tf < 50) {Blynk.virtualWrite(V1, tf);}
+        if (h > 10 && h < 100)  {Blynk.virtualWrite(V2, h);}
+        if (co2 > 400)          {Blynk.virtualWrite(V5, co2);}
 
         // Write to debug console
         printString("H: " + String(hf) + "%");
@@ -190,14 +195,14 @@ void sendMeasurements() {
         printString("CO2: " + String(co2) + "ppm");
 
         //Will set WS2812b
-        if (co2 > 1400 )              {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0xFF0000, 1000, false);} // > 1400 ppm
-        if (co2 > 1300 && co2 < 1400) {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0xFF4500, 1000, false);} // > 1300 ppm
-        if (co2 > 1200 && co2 < 1300) {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0xFFA500, 1000, false);} // > 1200 ppm
-        if (co2 > 1100 && co2 < 1200) {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0xFFA500, 1000, false);} // > 1100 ppm
-        if (co2 > 1000 && co2 < 1100) {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0xFFFF00, 1000, false);} // > 1000 ppm
-        if (co2 > 900  && co2 < 1000) {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0x32CD32, 1000, false);} // >  900 ppm
-        if (co2 > 800  && co2 < 900)  {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0x00FFFF, 1000, false);} // >  800 ppm
-        if (co2 < 800)                {ws2812fx.setSegment(0,  0,  9, FX_MODE_BREATH, 0x87CEFA, 1000, false);} // <  800 ppm
+        if (co2 > 1400 )              {ws2812fx.setSegment(0,  0,  0, FX_MODE_BREATH, 0xFF0000, 10, false);} // > 1400 ppm
+        if (co2 > 1300 && co2 < 1400) {ws2812fx.setSegment(0,  0,  0, FX_MODE_BREATH, 0xFF4500, 10, false);} // > 1300 ppm
+        if (co2 > 1200 && co2 < 1300) {ws2812fx.setSegment(0,  0,  0, FX_MODE_BREATH, 0xFFA500, 10, false);} // > 1200 ppm
+        if (co2 > 1100 && co2 < 1200) {ws2812fx.setSegment(0,  0,  0, FX_MODE_BREATH, 0xFFA500, 10, false);} // > 1100 ppm
+        if (co2 > 1000 && co2 < 1100) {ws2812fx.setSegment(0,  0,  0, FX_MODE_BREATH, 0xFFFF00, 10, false);} // > 1000 ppm
+        if (co2 > 900  && co2 < 1000) {ws2812fx.setSegment(0,  0,  0, FX_MODE_BREATH, 0x32CD32, 10, false);} // >  900 ppm
+        if (co2 > 800  && co2 < 900)  {ws2812fx.setSegment(0,  0,  0, FX_MODE_BREATH, 0x00FFFF, 10, false);} // >  800 ppm
+        if (co2 < 800)                {ws2812fx.setSegment(0,  0,  0, FX_MODE_BREATH, 0xFF00FF, 10, false);} // <  800 ppm
 }
 
 
@@ -240,7 +245,7 @@ void draw() {
         // Switch every 3 seconds
         switch((millis() / 3000) % 3) {
         case 0:
-                if (t > -100) { measurement = "T: " + String(t) + degree + "C"; }
+                if (t > -100) { measurement = "T: " + String(tf) + degree + "C"; }
                 break;
         case 1:
                 if (h > -1) { measurement = "H: " + String(h) + "%"; }
@@ -302,16 +307,16 @@ void drawConnectionDetails(String ssid, String pass, String url) {
 }
 
 bool loadConfig() {
-        DEBUG_SERIAL.println("Load config...");
+                 DEBUG_SERIAL.println("Load config...");
         File configFile = SPIFFS.open("/config.json", "r");
         if (!configFile) {
-                DEBUG_SERIAL.println("Failed to open config file");
+                         DEBUG_SERIAL.println("Failed to open config file");
                 return false;
         }
 
         size_t size = configFile.size();
         if (size > 1024) {
-                DEBUG_SERIAL.println("Config file size is too large");
+                         DEBUG_SERIAL.println("Config file size is too large");
                 return false;
         }
 
@@ -327,7 +332,7 @@ bool loadConfig() {
         JsonObject &json = jsonBuffer.parseObject(buf.get());
 
         if (!json.success()) {
-                DEBUG_SERIAL.println("Failed to parse config file");
+                         DEBUG_SERIAL.println("Failed to parse config file");
                 return false;
         }
 
@@ -365,12 +370,12 @@ void setupWiFi() {
         wifiManager.setAPCallback(configModeCallback);
 
         if (!wifiManager.autoConnect(ssid.c_str(), pass.c_str())) {
-                DEBUG_SERIAL.println("failed to connect and hit timeout");
+                         DEBUG_SERIAL.println("failed to connect and hit timeout");
         }
 
         //save the custom parameters to FS
         if (shouldSaveConfig) {
-                DEBUG_SERIAL.println("saving config");
+                         DEBUG_SERIAL.println("saving config");
                 DynamicJsonBuffer jsonBuffer;
                 JsonObject &json = jsonBuffer.createObject();
                 json["device_id"] = custom_device_id.getValue();
@@ -380,7 +385,7 @@ void setupWiFi() {
 
                 File configFile = SPIFFS.open("/config.json", "w");
                 if (!configFile) {
-                        DEBUG_SERIAL.println("failed to open config file for writing");
+                                 DEBUG_SERIAL.println("failed to open config file for writing");
                 }
 
                 json.printTo(DEBUG_SERIAL);
@@ -390,16 +395,16 @@ void setupWiFi() {
         }
 
         //if you get here you have connected to the WiFi
-        DEBUG_SERIAL.println("WiFi connected");
+                 DEBUG_SERIAL.println("WiFi connected");
 
-        DEBUG_SERIAL.print("IP address: ");
-        DEBUG_SERIAL.println(WiFi.localIP());
+                 DEBUG_SERIAL.print("IP address: ");
+                 DEBUG_SERIAL.println(WiFi.localIP());
 }
 
 // Virtual pin update FW
 BLYNK_WRITE(V22) {
         if (param.asInt() == 1) {
-                DEBUG_SERIAL.println("Got a FW update request");
+                         DEBUG_SERIAL.println("Got a FW update request");
 
                 char full_version[34] {""};
                 strcat(full_version, device_id);
@@ -409,13 +414,13 @@ BLYNK_WRITE(V22) {
                 t_httpUpdate_return ret = ESPhttpUpdate.update("http://romfrom.space/get", full_version);
                 switch (ret) {
                 case HTTP_UPDATE_FAILED:
-                        DEBUG_SERIAL.println("[update] Update failed.");
+                                 DEBUG_SERIAL.println("[update] Update failed.");
                         break;
                 case HTTP_UPDATE_NO_UPDATES:
-                        DEBUG_SERIAL.println("[update] Update no Update.");
+                                 DEBUG_SERIAL.println("[update] Update no Update.");
                         break;
                 case HTTP_UPDATE_OK:
-                        DEBUG_SERIAL.println("[update] Update ok.");
+                                 DEBUG_SERIAL.println("[update] Update ok.");
                         break;
                 }
 
@@ -429,11 +434,12 @@ BLYNK_WRITE(V23) {
 
 void setup() {
         // Init serial ports
-        DEBUG_SERIAL.begin(115200);
+                 DEBUG_SERIAL.begin(115200);
         SENSOR_SERIAL.begin(9600);
 
         ws2812fx.init();
-        ws2812fx.setBrightness(250);
+        ws2812fx.setBrightness(255);
+        ws2812fx.start();
 
         // Init I2C interface
         Wire.begin(I2C_SDA, I2C_SCL);
@@ -455,7 +461,7 @@ void setup() {
 
         // Init filesystem
         if (!SPIFFS.begin()) {
-                DEBUG_SERIAL.println("Failed to mount file system");
+                         DEBUG_SERIAL.println("Failed to mount file system");
                 ESP.reset();
         }
 
@@ -466,27 +472,27 @@ void setup() {
         // Load config
         drawBoot();
         if (!loadConfig()) {
-                DEBUG_SERIAL.println("Failed to load config");
+                         DEBUG_SERIAL.println("Failed to load config");
                 factoryReset();
         } else {
-                DEBUG_SERIAL.println("Config loaded");
+                         DEBUG_SERIAL.println("Config loaded");
         }
 
         // Start blynk
 
         Blynk.config(blynk_token, blynk_server, blynk_port);
-        DEBUG_SERIAL.print("blynk server: ");
-        DEBUG_SERIAL.println(  blynk_server );
-        DEBUG_SERIAL.print("port: " );
-        DEBUG_SERIAL.println(  blynk_port );
-        DEBUG_SERIAL.print("token: " );
-        DEBUG_SERIAL.println(  blynk_token  );
+                 DEBUG_SERIAL.print("blynk server: ");
+                 DEBUG_SERIAL.println(  blynk_server );
+                 DEBUG_SERIAL.print("port: " );
+                 DEBUG_SERIAL.println(  blynk_port );
+                 DEBUG_SERIAL.print("token: " );
+                 DEBUG_SERIAL.println(  blynk_token  );
 
         drawBoot("Connecting...");
-        DEBUG_SERIAL.println("Connecting to blynk...");
+                 DEBUG_SERIAL.println("Connecting to blynk...");
         while (Blynk.connect() == false) {
           delay(500);
-          DEBUG_SERIAL.println("Connecting to blynk...");
+                   DEBUG_SERIAL.println("Connecting to blynk...");
         }
 
         // Setup a function to be called every 10 second
