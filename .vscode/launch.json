@@ -12,7 +12,7 @@
             "type": "platformio-debug",
             "request": "launch",
             "name": "PIO Debug",
-            "executable": "d:/git/CO2METER/.pioenvs/base/firmware.elf",
+            "executable": "d:/git/CO2METER-1/.pioenvs/base/firmware.elf",
             "toolchainBinDir": "",
             "preLaunchTask": {
                 "type": "PlatformIO",
@@ -24,7 +24,7 @@
             "type": "platformio-debug",
             "request": "launch",
             "name": "PIO Debug (skip Pre-Debug)",
-            "executable": "d:/git/CO2METER/.pioenvs/base/firmware.elf",
+            "executable": "d:/git/CO2METER-1/.pioenvs/base/firmware.elf",
             "toolchainBinDir": "",
             "internalConsoleOptions": "openOnSessionStart"
         }
